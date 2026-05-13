@@ -147,20 +147,21 @@ export default function DoctorsPage() {
         bio: formData.bio,
         email: formData.email,
         services: formData.services.filter((s) => s.name && s.price),
-        status: 'approved' as const,
       };
 
+      console.log('Submitting doctor data:', doctorData);
       const doctorId = await createDoctor(doctorData);
       if (doctorId) {
         const newDoctor: DoctorRequest = {
           id: doctorId,
           ...doctorData,
+          status: 'pending',
           createdAt: new Date() as any,
           updatedAt: new Date() as any,
         };
         setDoctors([...doctors, newDoctor]);
         handleCloseModal();
-        alert('Doctor added successfully!');
+        alert('Doctor added successfully! Please review and approve/reject.');
       } else {
         alert('Failed to add doctor. Check console for details.');
       }
@@ -304,30 +305,24 @@ export default function DoctorsPage() {
                         {doctor.status.charAt(0).toUpperCase() + doctor.status.slice(1)}
                       </span>
                     </div>
-                    <div className="flex gap-2 mt-4">
-                      <button
-                        onClick={() => handleApprove(doctor.id)}
-                        disabled={actionLoading === doctor.id || doctor.status === 'approved'}
-                        className={`flex-1 px-4 py-2 rounded-lg font-semibold text-sm transition ${
-                          doctor.status === 'approved'
-                            ? 'bg-green-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-green-50 border border-gray-300 disabled:opacity-50'
-                        }`}
-                      >
-                        {actionLoading === doctor.id ? <Loader className="w-4 h-4 animate-spin mx-auto" /> : '✓ Approve'}
-                      </button>
-                      <button
-                        onClick={() => handleReject(doctor.id)}
-                        disabled={actionLoading === doctor.id || doctor.status === 'rejected'}
-                        className={`flex-1 px-4 py-2 rounded-lg font-semibold text-sm transition ${
-                          doctor.status === 'rejected'
-                            ? 'bg-red-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-red-50 border border-gray-300 disabled:opacity-50'
-                        }`}
-                      >
-                        {actionLoading === doctor.id ? <Loader className="w-4 h-4 animate-spin mx-auto" /> : '✗ Reject'}
-                      </button>
-                    </div>
+                    {doctor.status === 'pending' && (
+                      <div className="flex gap-2 mt-4">
+                        <button
+                          onClick={() => handleApprove(doctor.id)}
+                          disabled={actionLoading === doctor.id}
+                          className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {actionLoading === doctor.id ? <Loader className="w-4 h-4 animate-spin" /> : '✓ Approve'}
+                        </button>
+                        <button
+                          onClick={() => handleReject(doctor.id)}
+                          disabled={actionLoading === doctor.id}
+                          className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          {actionLoading === doctor.id ? <Loader className="w-4 h-4 animate-spin" /> : '✗ Reject'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

@@ -9,6 +9,7 @@ import {
   Timestamp,
   QueryConstraint,
   addDoc,
+  getDoc,
 } from 'firebase/firestore';
 
 // Types
@@ -83,11 +84,33 @@ export async function getDoctorRequests(
 
 export async function approveDoctorRequest(doctorId: string): Promise<boolean> {
   try {
+    // Update the doctor request status
     const docRef = doc(db, 'doctorRequests', doctorId);
+    const doctorRequestDoc = await getDoc(docRef);
+    
+    if (!doctorRequestDoc.exists()) {
+      console.error('Doctor request not found');
+      return false;
+    }
+
+    const doctorData = doctorRequestDoc.data();
+
+    // Create doctor profile in doctors collection
+    await addDoc(collection(db, 'doctors'), {
+      ...doctorData,
+      password: 'doctor123',
+      status: 'active',
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
+
+    // Update the request status
     await updateDoc(docRef, {
       status: 'approved',
       updatedAt: Timestamp.now(),
     });
+
+    console.log('Doctor approved and profile created');
     return true;
   } catch (error) {
     console.error('Error approving doctor request:', error);
@@ -109,17 +132,28 @@ export async function rejectDoctorRequest(doctorId: string): Promise<boolean> {
   }
 }
 
-export async function createDoctor(doctorData: Omit<DoctorRequest, 'id' | 'createdAt' | 'updatedAt'>): Promise<string | null> {
+export async function createDoctor(doctorData: Omit<DoctorRequest, 'id' | 'createdAt' | 'updatedAt' | 'status'>): Promise<string | null> {
   try {
     const newDoctor = {
       ...doctorData,
-      status: 'approved',
+      status: 'pending',
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     };
 
+    console.log('Creating doctor request with data:', newDoctor);
     const docRef = await addDoc(collection(db, 'doctorRequests'), newDoctor);
-    console.log('Doctor created successfully with ID:', docRef.id);
+    console.log('Doctor request created successfully with ID:', docRef.id);
+    
+    // Also create the doctor profile in doctors collection with pending status
+    await addDoc(collection(db, 'doctors'), {
+      ...doctorData,
+      password: 'doctor123',
+      status: 'pending',
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
+
     return docRef.id;
   } catch (error: any) {
     console.error('Error creating doctor:', error);
