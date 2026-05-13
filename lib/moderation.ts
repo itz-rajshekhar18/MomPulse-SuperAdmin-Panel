@@ -8,6 +8,7 @@ import {
   doc,
   Timestamp,
   QueryConstraint,
+  addDoc,
 } from 'firebase/firestore';
 
 // Types
@@ -105,6 +106,26 @@ export async function rejectDoctorRequest(doctorId: string): Promise<boolean> {
   } catch (error) {
     console.error('Error rejecting doctor request:', error);
     return false;
+  }
+}
+
+export async function createDoctor(doctorData: Omit<DoctorRequest, 'id' | 'createdAt' | 'updatedAt'>): Promise<string | null> {
+  try {
+    const newDoctor = {
+      ...doctorData,
+      status: 'approved',
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    };
+
+    const docRef = await addDoc(collection(db, 'doctorRequests'), newDoctor);
+    console.log('Doctor created successfully with ID:', docRef.id);
+    return docRef.id;
+  } catch (error: any) {
+    console.error('Error creating doctor:', error);
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
+    throw error;
   }
 }
 

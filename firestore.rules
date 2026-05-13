@@ -197,18 +197,18 @@ service cloud.firestore {
 
     // Doctor Requests collection - for doctor approval queue
     match /doctorRequests/{doctorId} {
-      // Admins can read and write all doctor requests
+      // Admins can read and write all doctor requests (including creating new doctors)
       allow read, write: if isAdmin();
       
       // Doctors can read their own request
-      allow read: if isAuthenticated() && request.auth.uid == doctorId;
+      allow read: if isAuthenticated() && resource.data.email == request.auth.token.email;
       
       // Doctors can create their own request
-      allow create: if isAuthenticated() && request.auth.uid == doctorId && 
-        request.resource.data.email == request.auth.token.email;
+      allow create: if isAuthenticated() && request.resource.data.email == request.auth.token.email &&
+        request.resource.data.keys().hasAll(['name', 'specialty', 'email', 'status']);
       
       // Doctors can update their own request
-      allow update: if isAuthenticated() && request.auth.uid == doctorId;
+      allow update: if isAuthenticated() && resource.data.email == request.auth.token.email;
     }
 
     // Session Requests collection - for session approval queue

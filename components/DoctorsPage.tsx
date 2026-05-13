@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, CheckCircle, XCircle, FileText, MapPin, Globe, Loader } from 'lucide-react';
-import { getDoctorRequests, approveDoctorRequest, rejectDoctorRequest } from '@/lib/moderation';
+import { Search, CheckCircle, XCircle, FileText, MapPin, Globe, Loader, Plus, X } from 'lucide-react';
+import { getDoctorRequests, approveDoctorRequest, rejectDoctorRequest, createDoctor } from '@/lib/moderation';
 import type { DoctorRequest } from '@/lib/moderation';
 
 export default function DoctorsPage() {
@@ -11,6 +11,18 @@ export default function DoctorsPage() {
   const [doctors, setDoctors] = useState<DoctorRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    specialty: '',
+    experience: '',
+    credentials: '',
+    location: '',
+    languages: '',
+    bio: '',
+    email: '',
+    services: [{ name: '', price: '' }],
+  });
 
   // Fetch doctors on mount and when filter changes
   useEffect(() => {
@@ -67,6 +79,99 @@ export default function DoctorsPage() {
     }
   };
 
+  const handleOpenModal = () => {
+    setFormData({
+      name: '',
+      specialty: '',
+      experience: '',
+      credentials: '',
+      location: '',
+      languages: '',
+      bio: '',
+      email: '',
+      services: [{ name: '', price: '' }],
+    });
+    setShowModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setFormData({
+      name: '',
+      specialty: '',
+      experience: '',
+      credentials: '',
+      location: '',
+      languages: '',
+      bio: '',
+      email: '',
+      services: [{ name: '', price: '' }],
+    });
+  };
+
+  const handleAddService = () => {
+    setFormData({
+      ...formData,
+      services: [...formData.services, { name: '', price: '' }],
+    });
+  };
+
+  const handleRemoveService = (index: number) => {
+    setFormData({
+      ...formData,
+      services: formData.services.filter((_, i) => i !== index),
+    });
+  };
+
+  const handleServiceChange = (index: number, field: 'name' | 'price', value: string) => {
+    const updatedServices = [...formData.services];
+    updatedServices[index][field] = value;
+    setFormData({
+      ...formData,
+      services: updatedServices,
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setActionLoading('submit');
+
+    try {
+      const doctorData = {
+        name: formData.name,
+        specialty: formData.specialty,
+        experience: formData.experience,
+        credentials: formData.credentials,
+        location: formData.location,
+        languages: formData.languages.split(',').map((l) => l.trim()),
+        bio: formData.bio,
+        email: formData.email,
+        services: formData.services.filter((s) => s.name && s.price),
+        status: 'approved' as const,
+      };
+
+      const doctorId = await createDoctor(doctorData);
+      if (doctorId) {
+        const newDoctor: DoctorRequest = {
+          id: doctorId,
+          ...doctorData,
+          createdAt: new Date() as any,
+          updatedAt: new Date() as any,
+        };
+        setDoctors([...doctors, newDoctor]);
+        handleCloseModal();
+        alert('Doctor added successfully!');
+      } else {
+        alert('Failed to add doctor. Check console for details.');
+      }
+    } catch (error: any) {
+      console.error('Error adding doctor:', error);
+      alert(`Error adding doctor: ${error.message || 'Unknown error'}`);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
       pending: 'bg-yellow-100 text-yellow-800 border border-yellow-300',
@@ -84,8 +189,17 @@ export default function DoctorsPage() {
           <h1 className="text-3xl font-bold text-gray-900">Doctors</h1>
           <p className="text-gray-600 mt-1">Manage and approve doctor profiles</p>
         </div>
-        <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg">
-          {pendingCount} Pending
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleOpenModal}
+            className="bg-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-purple-700 transition flex items-center gap-2"
+          >
+            <Plus className="w-5 h-5" />
+            Add Doctor
+          </button>
+          <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-3 rounded-xl font-semibold shadow-lg">
+            {pendingCount} Pending
+          </div>
         </div>
       </div>
 
@@ -221,6 +335,198 @@ export default function DoctorsPage() {
           ))
         )}
       </div>
+
+      {/* Add Doctor Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-2xl font-bold text-gray-900">Add New Doctor</h2>
+              <button
+                onClick={handleCloseModal}
+                className="text-gray-500 hover:text-gray-700 transition"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {/* Name */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">Full Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Dr. John Doe"
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">Email *</label>
+                <input
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="doctor@example.com"
+                />
+              </div>
+
+              {/* Specialty */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">Specialty *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.specialty}
+                  onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Obstetrics & Gynecology"
+                />
+              </div>
+
+              {/* Experience */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">Experience (years) *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.experience}
+                  onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="10+ years"
+                />
+              </div>
+
+              {/* Credentials */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">Credentials *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.credentials}
+                  onChange={(e) => setFormData({ ...formData, credentials: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="MD, Board Certified"
+                />
+              </div>
+
+              {/* Location */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">Location *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="New York, USA"
+                />
+              </div>
+
+              {/* Languages */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">Languages (comma-separated) *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.languages}
+                  onChange={(e) => setFormData({ ...formData, languages: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="English, Spanish"
+                />
+              </div>
+
+              {/* Bio */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-900 mb-2">Bio</label>
+                <textarea
+                  value={formData.bio}
+                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  placeholder="Brief bio about the doctor"
+                  rows={3}
+                />
+              </div>
+
+              {/* Services */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-sm font-semibold text-gray-900">Services</label>
+                  <button
+                    type="button"
+                    onClick={handleAddService}
+                    className="text-sm text-purple-600 hover:text-purple-700 font-semibold"
+                  >
+                    + Add Service
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {formData.services.map((service, index) => (
+                    <div key={index} className="flex gap-2">
+                      <input
+                        type="text"
+                        value={service.name}
+                        onChange={(e) => handleServiceChange(index, 'name', e.target.value)}
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="Service name"
+                      />
+                      <input
+                        type="text"
+                        value={service.price}
+                        onChange={(e) => handleServiceChange(index, 'price', e.target.value)}
+                        className="w-24 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        placeholder="Price"
+                      />
+                      {formData.services.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveService(index)}
+                          className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-900 rounded-lg font-semibold hover:bg-gray-300 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={actionLoading === 'submit'}
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {actionLoading === 'submit' ? (
+                    <>
+                      <Loader className="w-4 h-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    'Add Doctor'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
