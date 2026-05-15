@@ -136,23 +136,17 @@ export async function createDoctor(doctorData: Omit<DoctorRequest, 'id' | 'creat
   try {
     const newDoctor = {
       ...doctorData,
-      status: 'pending',
+      password: 'doctor123', // Default password for new doctors
+      status: 'active', // Doctors created by admin are active immediately
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     };
 
-    console.log('Creating doctor request with data:', newDoctor);
-    const docRef = await addDoc(collection(db, 'doctorRequests'), newDoctor);
-    console.log('Doctor request created successfully with ID:', docRef.id);
+    console.log('Creating doctor directly in doctors collection:', newDoctor);
     
-    // Also create the doctor profile in doctors collection with pending status
-    await addDoc(collection(db, 'doctors'), {
-      ...doctorData,
-      password: 'doctor123',
-      status: 'pending',
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-    });
+    // Create doctor directly in the doctors collection (admin-created doctors)
+    const docRef = await addDoc(collection(db, 'doctors'), newDoctor);
+    console.log('Doctor created successfully with ID:', docRef.id);
 
     return docRef.id;
   } catch (error: any) {

@@ -169,12 +169,22 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Top-level Doctors collection (for consultation page)
+    // ========================================
+    // DOCTORS COLLECTION (Consolidated)
+    // ========================================
+    // Top-level Doctors collection (for consultation page and doctor panel)
     match /doctors/{doctorId} {
       // All authenticated users can read doctors
       allow read: if isAuthenticated();
-      // Admins have full write access
+      
+      // Admins have full write access (create, update, delete)
       allow write: if isAdmin();
+      
+      // Doctors can create their own profile after authentication
+      allow create: if isAuthenticated() && request.auth.uid == doctorId && request.resource.data.email == request.auth.token.email;
+      
+      // Doctors can update their own profile
+      allow update: if isAuthenticated() && request.auth.uid == doctorId;
     }
 
     // Top-level Sessions collection (for consultation page)
@@ -203,18 +213,92 @@ service cloud.firestore {
     }
 
     // ========================================
-    // DOCTOR PANEL COLLECTIONS
+    // ADMIN PANEL COLLECTIONS
     // ========================================
 
-    // Doctor Panel - Doctors collection
-    match /doctors/{doctorId} {
-      // Admins have full access
-      allow read, write: if isAdmin();
-      // Doctors can read and write their own profile
-      allow read, write: if isAuthenticated() && request.auth.uid == doctorId;
-      // Allow doctors to create their own profile after authentication
-      allow create: if isAuthenticated() && request.auth.uid == doctorId && request.resource.data.email == request.auth.token.email;
+    // Admins collection - for super admin panel
+    match /admins/{adminId} {
+      // Admins can read their own data
+      allow read: if isAuthenticated() && request.auth.uid == adminId;
+      
+      // Admins can update their own data
+      allow update: if isAuthenticated() && request.auth.uid == adminId;
+      
+      // Only super admins can create/delete admin users
+      allow create, delete: if isAdmin();
     }
+
+    // Doctor Requests collection - for doctor approval queue (pending doctors only)
+    match /doctorRequests/{doctorId} {
+      // Admins can read and write all doctor requests
+      allow read, write: if isAdmin();
+      
+      // Doctors can read their own request
+      allow read: if isAuthenticated() && resource.data.email == request.auth.token.email;
+      
+      // Doctors can create their own request (will be pending until approved)
+      allow create: if isAuthenticated() && request.resource.data.email == request.auth.token.email &&
+        request.resource.data.keys().hasAll(['name', 'specialty', 'email', 'status']) &&
+        request.resource.data.status == 'pending';
+      
+      // Doctors can update their own request (but not the status)
+      allow update: if isAuthenticated() && resource.data.email == request.auth.token.email &&
+        request.resource.data.status == resource.data.status;
+    }
+
+    // Session Requests collection - for session approval queue
+    match /sessionRequests/{sessionId} {
+      // Admins can read and write all session requests
+      allow read, write: if isAdmin();
+      
+      // Users can read their own session requests
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Users can create session requests
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      
+      // Users can update their own session requests
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // Article Requests collection - for article approval queue
+    match /articleRequests/{articleId} {
+      // Admins can read and write all article requests
+      allow read, write: if isAdmin();
+      
+      // Users can read their own article requests
+      allow read: if isAuthenticated() && resource.data.authorId == request.auth.uid;
+      
+      // Users can create article requests
+      allow create: if isAuthenticated() && request.resource.data.authorId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['title', 'content', 'category', 'authorId', 'createdAt']);
+      
+      // Users can update their own article requests
+      allow update: if isAuthenticated() && resource.data.authorId == request.auth.uid;
+    }
+
+    // Products collection - for admin product management
+    match /products/{productId} {
+      // All authenticated users can read products
+      allow read: if isAuthenticated();
+      
+      // Only admins can create products
+      allow create: if isAdmin() && 
+        request.resource.data.keys().hasAll(['name', 'description', 'price', 'category', 'createdAt']) &&
+        request.resource.data.price > 0 &&
+        request.resource.data.name is string &&
+        request.resource.data.description is string;
+      
+      // Only admins can update products
+      allow update: if isAdmin();
+      
+      // Only admins can delete products
+      allow delete: if isAdmin();
+    }
+
+    // ========================================
+    // DOCTOR PANEL COLLECTIONS
+    // ========================================
 
     // Doctor Panel - Patients collection
     match /patients/{patientId} {

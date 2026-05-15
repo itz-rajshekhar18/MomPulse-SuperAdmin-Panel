@@ -155,13 +155,13 @@ export default function DoctorsPage() {
         const newDoctor: DoctorRequest = {
           id: doctorId,
           ...doctorData,
-          status: 'pending',
+          status: 'approved', // Admin-created doctors are approved immediately
           createdAt: new Date() as any,
           updatedAt: new Date() as any,
         };
         setDoctors([...doctors, newDoctor]);
         handleCloseModal();
-        alert('Doctor added successfully! Please review and approve/reject.');
+        alert('Doctor added successfully and is now active!');
       } else {
         alert('Failed to add doctor. Check console for details.');
       }
