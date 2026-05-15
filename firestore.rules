@@ -16,16 +16,6 @@ service cloud.firestore {
       return isAuthenticated() && (request.auth.token.email == 'admin@admin.com' || request.auth.token.email == 'admin@mompulse.com');
     }
 
-    // Helper function to check if user is a doctor
-    function isDoctor() {
-      return isAuthenticated() && exists(/databases/$(database)/documents/doctors/$(request.auth.uid));
-    }
-
-    // Helper function to get doctor data
-    function getDoctorData() {
-      return get(/databases/$(database)/documents/doctors/$(request.auth.uid)).data;
-    }
-
     // Users collection - users can only read/write their own data, admins can read all
     match /users/{userId} {
       // Admins have full access
@@ -179,69 +169,6 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // ========================================
-    // ADMIN PANEL COLLECTIONS
-    // ========================================
-
-    // Admins collection - for super admin panel
-    match /admins/{adminId} {
-      // Admins can read their own data
-      allow read: if isAuthenticated() && request.auth.uid == adminId;
-      
-      // Admins can update their own data
-      allow update: if isAuthenticated() && request.auth.uid == adminId;
-      
-      // Only super admins can create/delete admin users
-      allow create, delete: if isAdmin();
-    }
-
-    // Doctor Requests collection - for doctor approval queue
-    match /doctorRequests/{doctorId} {
-      // Admins can read and write all doctor requests (including creating new doctors)
-      allow read, write: if isAdmin();
-      
-      // Doctors can read their own request
-      allow read: if isAuthenticated() && resource.data.email == request.auth.token.email;
-      
-      // Doctors can create their own request
-      allow create: if isAuthenticated() && request.resource.data.email == request.auth.token.email &&
-        request.resource.data.keys().hasAll(['name', 'specialty', 'email', 'status']);
-      
-      // Doctors can update their own request
-      allow update: if isAuthenticated() && resource.data.email == request.auth.token.email;
-    }
-
-    // Session Requests collection - for session approval queue
-    match /sessionRequests/{sessionId} {
-      // Admins can read and write all session requests
-      allow read, write: if isAdmin();
-      
-      // Users can read their own session requests
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      
-      // Users can create session requests
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      
-      // Users can update their own session requests
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
-    }
-
-    // Article Requests collection - for article approval queue
-    match /articleRequests/{articleId} {
-      // Admins can read and write all article requests
-      allow read, write: if isAdmin();
-      
-      // Users can read their own article requests
-      allow read: if isAuthenticated() && resource.data.authorId == request.auth.uid;
-      
-      // Users can create article requests
-      allow create: if isAuthenticated() && request.resource.data.authorId == request.auth.uid &&
-        request.resource.data.keys().hasAll(['title', 'content', 'category', 'authorId', 'createdAt']);
-      
-      // Users can update their own article requests
-      allow update: if isAuthenticated() && resource.data.authorId == request.auth.uid;
-    }
-
     // Top-level Doctors collection (for consultation page)
     match /doctors/{doctorId} {
       // All authenticated users can read doctors
@@ -283,12 +210,10 @@ service cloud.firestore {
     match /doctors/{doctorId} {
       // Admins have full access
       allow read, write: if isAdmin();
-      // Doctors can read their own profile
-      allow read: if isAuthenticated() && request.auth.uid == doctorId;
-      // Doctors can create their own profile on first login
+      // Doctors can read and write their own profile
+      allow read, write: if isAuthenticated() && request.auth.uid == doctorId;
+      // Allow doctors to create their own profile after authentication
       allow create: if isAuthenticated() && request.auth.uid == doctorId && request.resource.data.email == request.auth.token.email;
-      // Doctors can update their own profile
-      allow update: if isAuthenticated() && request.auth.uid == doctorId;
     }
 
     // Doctor Panel - Patients collection
@@ -296,13 +221,9 @@ service cloud.firestore {
       // Admins have full access
       allow read, write: if isAdmin();
       // Doctors can read and write patients assigned to them
-      allow read, write: if isAuthenticated() && 
-        exists(/databases/$(database)/documents/doctors/$(resource.data.doctorId)) &&
-        resource.data.doctorId == request.auth.uid;
+      allow read, write: if isAuthenticated() && resource.data.doctorId == request.auth.uid;
       // Doctors can create patients and assign them to themselves
-      allow create: if isAuthenticated() && 
-        request.resource.data.doctorId == request.auth.uid &&
-        exists(/databases/$(database)/documents/doctors/$(request.auth.uid));
+      allow create: if isAuthenticated() && request.resource.data.doctorId == request.auth.uid;
     }
 
     // Doctor Panel - Appointments collection
@@ -310,13 +231,9 @@ service cloud.firestore {
       // Admins have full access
       allow read, write: if isAdmin();
       // Doctors can read and write appointments for their patients
-      allow read, write: if isAuthenticated() && 
-        exists(/databases/$(database)/documents/doctors/$(resource.data.doctorId)) &&
-        resource.data.doctorId == request.auth.uid;
+      allow read, write: if isAuthenticated() && resource.data.doctorId == request.auth.uid;
       // Doctors can create appointments for their patients
-      allow create: if isAuthenticated() && 
-        request.resource.data.doctorId == request.auth.uid &&
-        exists(/databases/$(database)/documents/doctors/$(request.auth.uid));
+      allow create: if isAuthenticated() && request.resource.data.doctorId == request.auth.uid;
     }
 
     // Doctor Panel - Medical Records subcollection
@@ -368,26 +285,71 @@ service cloud.firestore {
     }
 
     // ========================================
-    // PRODUCTS COLLECTION
+    // DOCTOR SESSIONS
     // ========================================
+    // doctorSessions collection holds sessions created by doctors.
+    // Approval flow:
+    //   draft            → saved by doctor, not visible to patients
+    //   pending_approval → visible to super-admin for review
+    //   approved         → visible on the user/patient dashboard
+    //   rejected         → only visible to the owning doctor
+    match /doctorSessions/{sessionId} {
+      // Super-admins have full access (approve / reject / delete)
+      allow read, write: if isAdmin();
 
-    // Products collection - for admin product management
-    match /products/{productId} {
-      // All authenticated users can read products
-      allow read: if isAuthenticated();
-      
-      // Only admins can create products
-      allow create: if isAdmin() && 
-        request.resource.data.keys().hasAll(['name', 'description', 'price', 'category', 'createdAt']) &&
-        request.resource.data.price > 0 &&
-        request.resource.data.name is string &&
-        request.resource.data.description is string;
-      
-      // Only admins can update products
-      allow update: if isAdmin();
-      
-      // Only admins can delete products
-      allow delete: if isAdmin();
+      // Any authenticated user (patient app) can read approved sessions
+      allow read: if isAuthenticated() && resource.data.approvalStatus == 'approved';
+
+      // The owning doctor can read all their own sessions regardless of status
+      allow read: if isAuthenticated() && resource.data.doctorId == request.auth.uid;
+
+      // Doctors can create sessions and assign them to themselves
+      allow create: if isAuthenticated() &&
+        request.resource.data.doctorId == request.auth.uid &&
+        request.resource.data.approvalStatus in ['draft', 'pending_approval'];
+
+      // Doctors can update only their own sessions, and cannot self-approve
+      allow update: if isAuthenticated() &&
+        resource.data.doctorId == request.auth.uid &&
+        request.resource.data.approvalStatus != 'approved' &&
+        request.resource.data.doctorId == request.auth.uid;
+
+      // Doctors can delete their own draft or rejected sessions
+      allow delete: if isAuthenticated() &&
+        resource.data.doctorId == request.auth.uid &&
+        resource.data.approvalStatus in ['draft', 'rejected'];
+    }
+
+    // ========================================
+    // DOCTOR CONTENT (Articles & Videos)
+    // ========================================
+    // doctorContent collection holds articles and videos created by doctors.
+    // Same approval flow as sessions
+    match /doctorContent/{contentId} {
+      // Super-admins have full access
+      allow read, write: if isAdmin();
+
+      // Any authenticated user can read approved content
+      allow read: if isAuthenticated() && resource.data.approvalStatus == 'approved';
+
+      // The owning doctor can read all their own content
+      allow read: if isAuthenticated() && resource.data.doctorId == request.auth.uid;
+
+      // Doctors can create content and assign it to themselves
+      allow create: if isAuthenticated() &&
+        request.resource.data.doctorId == request.auth.uid &&
+        request.resource.data.approvalStatus in ['draft', 'pending_approval'];
+
+      // Doctors can update only their own content, and cannot self-approve
+      allow update: if isAuthenticated() &&
+        resource.data.doctorId == request.auth.uid &&
+        request.resource.data.approvalStatus != 'approved' &&
+        request.resource.data.doctorId == request.auth.uid;
+
+      // Doctors can delete their own draft or rejected content
+      allow delete: if isAuthenticated() &&
+        resource.data.doctorId == request.auth.uid &&
+        resource.data.approvalStatus in ['draft', 'rejected'];
     }
 
     // Deny all other access
