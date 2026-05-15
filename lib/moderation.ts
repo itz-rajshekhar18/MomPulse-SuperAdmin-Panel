@@ -59,6 +59,38 @@ export interface ArticleRequest {
   updatedAt: Timestamp;
 }
 
+export interface DoctorSession {
+  id: string;
+  title: string;
+  description: string;
+  doctorId: string;
+  doctorName: string;
+  specialty: string;
+  duration: string;
+  price: string;
+  sessionType: string;
+  approvalStatus: 'draft' | 'pending_approval' | 'approved' | 'rejected';
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+export interface DoctorContent {
+  id: string;
+  title: string;
+  description: string;
+  contentType: 'article' | 'video';
+  doctorId: string;
+  doctorName: string;
+  specialty: string;
+  category: string;
+  content?: string; // For articles
+  videoUrl?: string; // For videos
+  thumbnailUrl?: string;
+  approvalStatus: 'draft' | 'pending_approval' | 'approved' | 'rejected';
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
 // Doctor Requests
 export async function getDoctorRequests(
   status?: 'pending' | 'approved' | 'rejected'
@@ -255,6 +287,118 @@ export async function rejectArticleRequest(articleId: string): Promise<boolean> 
     return true;
   } catch (error) {
     console.error('Error rejecting article request:', error);
+    return false;
+  }
+}
+
+// ========================================
+// DOCTOR SESSIONS
+// ========================================
+
+export async function getDoctorSessions(
+  approvalStatus?: 'draft' | 'pending_approval' | 'approved' | 'rejected'
+): Promise<DoctorSession[]> {
+  try {
+    const constraints: QueryConstraint[] = [];
+    if (approvalStatus) {
+      constraints.push(where('approvalStatus', '==', approvalStatus));
+    }
+
+    const q = query(collection(db, 'doctorSessions'), ...constraints);
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    } as DoctorSession));
+  } catch (error) {
+    console.error('Error fetching doctor sessions:', error);
+    return [];
+  }
+}
+
+export async function approveDoctorSession(sessionId: string): Promise<boolean> {
+  try {
+    const docRef = doc(db, 'doctorSessions', sessionId);
+    await updateDoc(docRef, {
+      approvalStatus: 'approved',
+      updatedAt: Timestamp.now(),
+    });
+    return true;
+  } catch (error) {
+    console.error('Error approving doctor session:', error);
+    return false;
+  }
+}
+
+export async function rejectDoctorSession(sessionId: string): Promise<boolean> {
+  try {
+    const docRef = doc(db, 'doctorSessions', sessionId);
+    await updateDoc(docRef, {
+      approvalStatus: 'rejected',
+      updatedAt: Timestamp.now(),
+    });
+    return true;
+  } catch (error) {
+    console.error('Error rejecting doctor session:', error);
+    return false;
+  }
+}
+
+// ========================================
+// DOCTOR CONTENT (Articles & Videos)
+// ========================================
+
+export async function getDoctorContent(
+  approvalStatus?: 'draft' | 'pending_approval' | 'approved' | 'rejected',
+  contentType?: 'article' | 'video'
+): Promise<DoctorContent[]> {
+  try {
+    const constraints: QueryConstraint[] = [];
+    if (approvalStatus) {
+      constraints.push(where('approvalStatus', '==', approvalStatus));
+    }
+    if (contentType) {
+      constraints.push(where('contentType', '==', contentType));
+    }
+
+    const q = query(collection(db, 'doctorContent'), ...constraints);
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    } as DoctorContent));
+  } catch (error) {
+    console.error('Error fetching doctor content:', error);
+    return [];
+  }
+}
+
+export async function approveDoctorContent(contentId: string): Promise<boolean> {
+  try {
+    const docRef = doc(db, 'doctorContent', contentId);
+    await updateDoc(docRef, {
+      approvalStatus: 'approved',
+      updatedAt: Timestamp.now(),
+    });
+    return true;
+  } catch (error) {
+    console.error('Error approving doctor content:', error);
+    return false;
+  }
+}
+
+export async function rejectDoctorContent(contentId: string): Promise<boolean> {
+  try {
+    const docRef = doc(db, 'doctorContent', contentId);
+    await updateDoc(docRef, {
+      approvalStatus: 'rejected',
+      updatedAt: Timestamp.now(),
+    });
+    return true;
+  } catch (error) {
+    console.error('Error rejecting doctor content:', error);
     return false;
   }
 }
