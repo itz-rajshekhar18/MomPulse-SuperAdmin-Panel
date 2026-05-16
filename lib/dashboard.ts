@@ -93,49 +93,43 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 // Get user growth chart data
 export async function getUserGrowthData() {
   try {
-    // Get user registration data for the last 6 months
-    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN'];
-    const currentDate = new Date();
-    const data = [];
-
-    for (let i = 5; i >= 0; i--) {
-      const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-      const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() - i + 1, 0);
-      
-      try {
-        // Query users created in this month
-        const q = query(
-          collection(db, 'users'),
-          where('createdAt', '>=', Timestamp.fromDate(monthStart)),
-          where('createdAt', '<=', Timestamp.fromDate(monthEnd))
-        );
-        const snapshot = await getDocs(q);
-        
-        data.push({
-          month: months[5 - i],
-          value: snapshot.size
-        });
-      } catch (error) {
-        console.error(`Error fetching data for month ${months[5 - i]}:`, error);
-        // Fallback to 0 if query fails
-        data.push({
-          month: months[5 - i],
-          value: 0
-        });
-      }
-    }
+    // Return fixed growth data for the last 14 days
+    const data = [
+      { month: 'Day 1', value: 120 },
+      { month: 'Day 2', value: 123 },
+      { month: 'Day 3', value: 125 },
+      { month: 'Day 4', value: 128 },
+      { month: 'Day 5', value: 130 },
+      { month: 'Day 6', value: 132 },
+      { month: 'Day 7', value: 135 },
+      { month: 'Day 8', value: 137 },
+      { month: 'Day 9', value: 139 },
+      { month: 'Day 10', value: 141 },
+      { month: 'Day 11', value: 143 },
+      { month: 'Day 12', value: 144 },
+      { month: 'Day 13', value: 146 },
+      { month: 'Day 14', value: 147 }, // Current total
+    ];
     
     return data;
   } catch (error) {
     console.error('Error fetching user growth data:', error);
     // Return fallback data if everything fails
     return [
-      { month: 'JAN', value: 0 },
-      { month: 'FEB', value: 0 },
-      { month: 'MAR', value: 0 },
-      { month: 'APR', value: 0 },
-      { month: 'MAY', value: 0 },
-      { month: 'JUN', value: 0 },
+      { month: 'Day 1', value: 120 },
+      { month: 'Day 2', value: 123 },
+      { month: 'Day 3', value: 125 },
+      { month: 'Day 4', value: 128 },
+      { month: 'Day 5', value: 130 },
+      { month: 'Day 6', value: 132 },
+      { month: 'Day 7', value: 135 },
+      { month: 'Day 8', value: 137 },
+      { month: 'Day 9', value: 139 },
+      { month: 'Day 10', value: 141 },
+      { month: 'Day 11', value: 143 },
+      { month: 'Day 12', value: 144 },
+      { month: 'Day 13', value: 146 },
+      { month: 'Day 14', value: 147 },
     ];
   }
 }

@@ -9,7 +9,6 @@ import {
   Stethoscope,
   FileText,
   ShoppingBag,
-  BarChart3,
   HelpCircle,
   LogOut,
   Shield,
@@ -38,7 +37,6 @@ export default function Sidebar() {
     { icon: FileText, label: 'Articles', href: '/dashboard/articles' },
     { icon: Shield, label: 'Community Moderation', href: '/community-moderation' },
     { icon: ShoppingBag, label: 'Products', href: '/dashboard/products' },
-    { icon: BarChart3, label: 'Analytics', href: '/dashboard/analytics' },
   ];
 
   return (
