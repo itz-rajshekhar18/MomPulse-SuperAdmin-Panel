@@ -10,6 +10,8 @@ import {
   QueryConstraint,
   addDoc,
   getDoc,
+  orderBy,
+  deleteDoc,
 } from 'firebase/firestore';
 
 // Types
@@ -399,6 +401,171 @@ export async function rejectDoctorContent(contentId: string): Promise<boolean> {
     return true;
   } catch (error) {
     console.error('Error rejecting doctor content:', error);
+    return false;
+  }
+}
+
+// ========================================
+// COMMUNITY MODERATION
+// ========================================
+
+export interface CommunityPost {
+  id: string;
+  section: string;
+  userId: string;
+  userName: string;
+  content: string;
+  createdAt: Timestamp;
+  likes?: number;
+  comments?: number;
+  reported?: boolean;
+  reportCount?: number;
+}
+
+export interface CommunityReport {
+  id: string;
+  postId: string;
+  postContent: string;
+  reporterId: string;
+  reporterName: string;
+  reason: string;
+  description?: string;
+  urgency: 'high' | 'medium' | 'low';
+  moderation: 'approved' | 'rejected' | 'pending';
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// Get all community posts from all sections
+export async function getAllCommunityPosts(): Promise<CommunityPost[]> {
+  try {
+    const sections = ['period', 'pre-pregnancy', 'postpartum', 'general'];
+    const allPosts: CommunityPost[] = [];
+
+    for (const section of sections) {
+      const q = query(
+        collection(db, `community/${section}/posts`),
+        orderBy('createdAt', 'desc')
+      );
+      const snapshot = await getDocs(q);
+
+      const posts = snapshot.docs
+        .filter(doc => !doc.data().deleted) // Filter out deleted posts
+        .map(doc => ({
+          id: doc.id,
+          section,
+          ...doc.data(),
+        } as CommunityPost));
+
+      allPosts.push(...posts);
+    }
+
+    // Sort all posts by creation date
+    allPosts.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+
+    return allPosts;
+  } catch (error) {
+    console.error('Error fetching community posts:', error);
+    return [];
+  }
+}
+
+// Get community posts by section
+export async function getCommunityPostsBySection(section: string): Promise<CommunityPost[]> {
+  try {
+    const q = query(
+      collection(db, `community/${section}/posts`),
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs
+      .filter(doc => !doc.data().deleted) // Filter out deleted posts
+      .map(doc => ({
+        id: doc.id,
+        section,
+        ...doc.data(),
+      } as CommunityPost));
+  } catch (error) {
+    console.error(`Error fetching posts from ${section}:`, error);
+    return [];
+  }
+}
+
+// Get community reports
+export async function getCommunityReportsDetailed(
+  moderationStatus?: 'approved' | 'rejected' | 'pending'
+): Promise<CommunityReport[]> {
+  try {
+    const constraints: QueryConstraint[] = [];
+    if (moderationStatus) {
+      constraints.push(where('moderation', '==', moderationStatus));
+    }
+
+    const q = query(
+      collection(db, 'communityReports'),
+      ...constraints,
+      orderBy('createdAt', 'desc')
+    );
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    } as CommunityReport));
+  } catch (error) {
+    console.error('Error fetching community reports:', error);
+    return [];
+  }
+}
+
+// Approve community report (remove the post permanently)
+export async function approveCommunityReport(reportId: string, postId: string, section: string): Promise<boolean> {
+  try {
+    // Update report status
+    const reportRef = doc(db, 'communityReports', reportId);
+    await updateDoc(reportRef, {
+      moderation: 'approved',
+      updatedAt: Timestamp.now(),
+    });
+
+    // Actually delete the reported post from Firestore
+    const postRef = doc(db, `community/${section}/posts`, postId);
+    await deleteDoc(postRef);
+
+    return true;
+  } catch (error) {
+    console.error('Error approving community report:', error);
+    return false;
+  }
+}
+
+// Reject community report (keep the post)
+export async function rejectCommunityReport(reportId: string): Promise<boolean> {
+  try {
+    const reportRef = doc(db, 'communityReports', reportId);
+    await updateDoc(reportRef, {
+      moderation: 'rejected',
+      updatedAt: Timestamp.now(),
+    });
+    return true;
+  } catch (error) {
+    console.error('Error rejecting community report:', error);
+    return false;
+  }
+}
+
+// Delete community post (permanently removes from database)
+export async function deleteCommunityPost(postId: string, section: string): Promise<boolean> {
+  try {
+    const postRef = doc(db, `community/${section}/posts`, postId);
+    
+    // Actually delete the document from Firestore
+    await deleteDoc(postRef);
+    
+    return true;
+  } catch (error) {
+    console.error('Error deleting community post:', error);
     return false;
   }
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
+import { getDashboardStats, formatNumber, type DashboardStats } from '@/lib/dashboard';
 import Sidebar from '@/components/Sidebar';
 import DashboardHeader from '@/components/DashboardHeader';
 import StatCard from '@/components/StatCard';
@@ -15,6 +16,8 @@ import CommunitySafetyDashboard from '@/components/CommunitySafetyDashboard';
 export default function DashboardWrapper() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -35,6 +38,24 @@ export default function DashboardWrapper() {
 
     checkAuth();
   }, [router]);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (isAuthenticated) {
+        try {
+          setStatsLoading(true);
+          const dashboardStats = await getDashboardStats();
+          setStats(dashboardStats);
+        } catch (error) {
+          console.error('Error fetching dashboard stats:', error);
+        } finally {
+          setStatsLoading(false);
+        }
+      }
+    };
+
+    fetchStats();
+  }, [isAuthenticated]);
 
   if (isLoading) {
     return (
@@ -65,13 +86,51 @@ export default function DashboardWrapper() {
         <div className="flex-1 overflow-y-auto">
           <div className="p-8 space-y-8">
             {/* Stats Grid */}
-            <div className="grid grid-cols-6 gap-4">
-              <StatCard label="Total Users" value="12.4k" change="12%" changeType="up" />
-              <StatCard label="Active Homeopaths" value="8.2k" change="8%" changeType="up" />
-              <StatCard label="Doctors" value="450" change="5%" changeType="down" />
-              <StatCard label="Sessions" value="2.1k" change="4%" changeType="up" />
-              <StatCard label="Revenue" value="$45.2k" change="15%" changeType="up" />
-              <StatCard label="Posts" value="15.8k" change="3%" changeType="up" />
+            <div className="grid grid-cols-4 gap-4">
+              {statsLoading ? (
+                // Loading skeleton
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="bg-white p-4 rounded-xl border border-gray-200 animate-pulse">
+                    <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                    <div className="h-6 bg-gray-200 rounded mb-1"></div>
+                    <div className="h-3 bg-gray-200 rounded w-16"></div>
+                  </div>
+                ))
+              ) : stats ? (
+                <>
+                  <StatCard 
+                    label="Total Users" 
+                    value={formatNumber(stats.totalUsers)} 
+                    change={`${stats.userGrowth}%`} 
+                    changeType="up" 
+                  />
+                  <StatCard 
+                    label="Doctors" 
+                    value={formatNumber(stats.doctors)} 
+                    change={`${stats.doctorGrowth}%`} 
+                    changeType={stats.doctorGrowth > 0 ? "up" : "down"} 
+                  />
+                  <StatCard 
+                    label="Sessions" 
+                    value={formatNumber(stats.sessions)} 
+                    change={`${stats.sessionGrowth}%`} 
+                    changeType="up" 
+                  />
+                  <StatCard 
+                    label="Posts" 
+                    value={formatNumber(stats.posts)} 
+                    change={`${stats.postGrowth}%`} 
+                    changeType="up" 
+                  />
+                </>
+              ) : (
+                // Error state
+                Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="bg-white p-4 rounded-xl border border-gray-200">
+                    <p className="text-sm text-gray-500">Error loading stats</p>
+                  </div>
+                ))
+              )}
             </div>
 
             {/* Charts Row */}

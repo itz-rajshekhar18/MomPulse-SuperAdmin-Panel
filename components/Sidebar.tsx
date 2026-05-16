@@ -12,6 +12,7 @@ import {
   BarChart3,
   HelpCircle,
   LogOut,
+  Shield,
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -35,6 +36,7 @@ export default function Sidebar() {
     { icon: Stethoscope, label: 'Doctors', href: '/dashboard/doctors' },
     { icon: FileText, label: 'Session Requests', href: '/dashboard/session-requests' },
     { icon: FileText, label: 'Articles', href: '/dashboard/articles' },
+    { icon: Shield, label: 'Community Moderation', href: '/community-moderation' },
     { icon: ShoppingBag, label: 'Products', href: '/dashboard/products' },
     { icon: BarChart3, label: 'Analytics', href: '/dashboard/analytics' },
   ];

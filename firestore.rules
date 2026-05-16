@@ -106,6 +106,8 @@ service cloud.firestore {
       allow create: if isAuthenticated() && isValidSection() && isValidPost();
       // Only post owner can update or delete their posts
       allow update, delete: if isAuthenticated() && isValidSection() && resource.data.userId == request.auth.uid;
+      // Admins can update or delete any post (for moderation)
+      allow update, delete: if isAdmin() && isValidSection();
 
       // Comments subcollection
       match /comments/{commentId} {
@@ -124,6 +126,8 @@ service cloud.firestore {
         allow create: if isAuthenticated() && isValidComment();
         // Only comment owner can update or delete their comments
         allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+        // Admins can update or delete any comment (for moderation)
+        allow update, delete: if isAdmin();
       }
 
       // Likes subcollection
@@ -434,6 +438,20 @@ service cloud.firestore {
       allow delete: if isAuthenticated() &&
         resource.data.doctorId == request.auth.uid &&
         resource.data.approvalStatus in ['draft', 'rejected'];
+    }
+
+    // ========================================
+    // COMMUNITY REPORTS
+    // ========================================
+    match /communityReports/{reportId} {
+      // Admins have full access
+      allow read, write: if isAdmin();
+      
+      // Users can create reports
+      allow create: if isAuthenticated();
+      
+      // Users can read their own reports
+      allow read: if isAuthenticated() && resource.data.reporterId == request.auth.uid;
     }
 
     // Deny all other access
