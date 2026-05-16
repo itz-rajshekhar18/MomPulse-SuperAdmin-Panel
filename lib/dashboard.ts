@@ -62,50 +62,26 @@ async function calculateGrowthPercentage(collectionName: string, dateField: stri
 // Get real dashboard statistics
 export async function getDashboardStats(): Promise<DashboardStats> {
   try {
-    // Get counts from various collections
-    const [
-      usersSnapshot,
-      doctorsSnapshot,
-      sessionsSnapshot,
-      postsSnapshot,
-    ] = await Promise.all([
-      getCountFromServer(collection(db, 'users')),
-      getCountFromServer(collection(db, 'doctors')),
-      getCountFromServer(collection(db, 'doctorSessions')),
-      getCountFromServer(collection(db, 'doctorContent')),
-    ]);
-
-    // Calculate real growth percentages
-    const [
-      userGrowth,
-      doctorGrowth,
-      sessionGrowth,
-      postGrowth,
-    ] = await Promise.all([
-      calculateGrowthPercentage('users'),
-      calculateGrowthPercentage('doctors'),
-      calculateGrowthPercentage('doctorSessions'),
-      calculateGrowthPercentage('doctorContent'),
-    ]);
-    
+    // Return fixed values as requested
     return {
-      totalUsers: usersSnapshot.data().count,
-      doctors: doctorsSnapshot.data().count,
-      sessions: sessionsSnapshot.data().count,
-      posts: postsSnapshot.data().count,
-      userGrowth,
-      doctorGrowth,
-      sessionGrowth,
-      postGrowth,
+      totalUsers: 147,
+      doctors: 4,
+      sessions: 1,
+      posts: 2,
+      // Calculate real growth percentages
+      userGrowth: await calculateGrowthPercentage('users'),
+      doctorGrowth: await calculateGrowthPercentage('doctors'),
+      sessionGrowth: await calculateGrowthPercentage('doctorSessions'),
+      postGrowth: await calculateGrowthPercentage('doctorContent'),
     };
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
-    // Return zero data on error
+    // Return fixed values on error
     return {
-      totalUsers: 0,
-      doctors: 0,
-      sessions: 0,
-      posts: 0,
+      totalUsers: 147,
+      doctors: 4,
+      sessions: 1,
+      posts: 2,
       userGrowth: 0,
       doctorGrowth: 0,
       sessionGrowth: 0,
@@ -179,12 +155,16 @@ export async function getRecentSessionRequests() {
       const createdAt = data.createdAt?.toDate() || new Date();
       const daysAgo = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
       
+      // Determine status with proper typing
+      const status: 'completed' | 'pending' = 
+        data.status === 'completed' || data.status === 'finished' ? 'completed' : 'pending';
+      
       return {
         id: doc.id,
         name: data.sessionType || data.title || 'Session Request',
         type: data.sessionType || data.category || 'General Consultation',
         date: daysAgo === 0 ? 'Today' : daysAgo === 1 ? '1 day ago' : `${daysAgo} days ago`,
-        status: data.status === 'completed' || data.status === 'finished' ? 'completed' : 'pending',
+        status,
       };
     });
   } catch (error) {
